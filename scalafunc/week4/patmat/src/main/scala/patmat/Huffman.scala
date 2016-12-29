@@ -192,53 +192,35 @@ object Huffman {
         case f: Fork => if (b ==0) f.left else f.right
       }
     }
-//
-//    def decode3(b: Bit, t: CodeTree): CodeTree = {
-//      t match {
-//        case l: Leaf => l
-//        case f: Fork => if (b == 0) decode3(b, f.left)
-//      }
-//    }
-
     bits match {
       case List() => List[Char]()
       case b :: bs =>
-//        decode(b, tree) match {
-//
-//        }
-//        tree match {
-//          case l: Leaf => l.char :: decode(tree, bs)
-//          case f: Fork => decode(next(b, f), bits.tail)
-//        }
         next(b, tree) match {
-          case l: Leaf => l.char :: decode(tree, bs)
+          case l: Leaf => List(l.char)
           case f: Fork => decode(f, bs)
         }
     }
-
-
-
   }
-
-  def decode2(tree : CodeTree, bits : List[Bit]) : List[Char]={
-    def loop(bit : Bit, tail : List[Bit], code : CodeTree) : List[Char]={
-      val res = code match{
-        case Fork(left, right, chars, weight) => if(bit == 0) left else right
-        case Leaf(chars, weight) => code
-      }
-      res match {
-        case Leaf(c, w) => {
-          if(tail.isEmpty) List(c) else List(c) ::: loop(tail.head, tail.tail, tree)
-        }
-        case Fork(l, r, c, w) => {
-          if(tail.isEmpty) throw new Error("couldn't find char")
-          else loop(tail.head, tail.tail, res)
-        }
-      }
-    }
-    if(bits.isEmpty) Nil else loop(bits.head, bits.tail, tree)
-  }
-
+//
+//  def decode2(tree : CodeTree, bits : List[Bit]) : List[Char]={
+//    def loop(bit : Bit, tail : List[Bit], code : CodeTree) : List[Char]={
+//      val res = code match{
+//        case Fork(left, right, chars, weight) => if(bit == 0) left else right
+//        case Leaf(chars, weight) => code
+//      }
+//      res match {
+//        case Leaf(c, w) => {
+//          if(tail.isEmpty) List(c) else List(c) ::: loop(tail.head, tail.tail, tree)
+//        }
+//        case Fork(l, r, c, w) => {
+//          if(tail.isEmpty) throw new Error("couldn't find char")
+//          else loop(tail.head, tail.tail, res)
+//        }
+//      }
+//    }
+//    if(bits.isEmpty) Nil else loop(bits.head, bits.tail, tree)
+//  }
+//
 
   /**
     * A Huffman coding tree for the French language.
@@ -256,7 +238,7 @@ object Huffman {
   /**
     * Write a function that returns the decoded secret
     */
-  def decodedSecret: List[Char] = decode2(frenchCode, secret)
+  def decodedSecret: List[Char] = decode(frenchCode, secret)
 
 
   // Part 4a: Encoding using Huffman tree
@@ -331,11 +313,13 @@ object Huffman {
     * To speed up the encoding process, it first converts the code tree to a code table
     * and then uses it to perform the actual encoding.
     */
-  def quickEncode(tree: CodeTree)(text: List[Char]): List[Bit] =  ???
-  //{
-  //  val ct = convert(tree)
-  //
-  //}
+  def quickEncode(tree: CodeTree)(text: List[Char]): List[Bit] = {
+    val ct = convert(tree)
+    text match {
+      case List() => List[Bit]()
+      case t :: ts => codeBits(ct)(t) ::: quickEncode(tree)(ts)
+    }
+  }
 
   def main(args: Array[String]) = {
     println("Hoffman")
@@ -344,7 +328,7 @@ object Huffman {
     println(decodedSecret)
 
     println(encode(frenchCode)(string2Chars("hoffman")))
-    println(decode2(frenchCode, encode(frenchCode)(string2Chars("hoffmannnnd"))))
+    println(decode(frenchCode, encode(frenchCode)(string2Chars("hoffmannnnd"))))
   }
 
 }
