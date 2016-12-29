@@ -164,7 +164,10 @@ object Huffman {
     *    the example invocation. Also define the return type of the `until` function.
     *  - try to find sensible parameter names for `xxx`, `yyy` and `zzz`.
     */
-  def until(xxx: ???, yyy: ???)(zzz: ???): ??? = ???
+  def until(isSingleton: List[CodeTree] => Boolean, reduce: List[CodeTree]=>List[CodeTree])(tree: List[CodeTree]): CodeTree = {
+    if ( isSingleton(tree) ) tree.head
+    else until(isSingleton, reduce)( reduce(tree) )
+  }
 
   /**
     * This function creates a code tree which is optimal to encode the text `chars`.
@@ -172,8 +175,7 @@ object Huffman {
     * The parameter `chars` is an arbitrary text. This function extracts the character
     * frequencies from that text and creates a code tree based on them.
     */
-  def createCodeTree(chars: List[Char]): CodeTree = ???
-
+  def createCodeTree(chars: List[Char]): CodeTree = until(singleton,combine)(makeOrderedLeafList(times(chars)))
 
   // Part 3: Decoding
 
@@ -183,7 +185,60 @@ object Huffman {
     * This function decodes the bit sequence `bits` using the code tree `tree` and returns
     * the resulting list of characters.
     */
-  def decode(tree: CodeTree, bits: List[Bit]): List[Char] = ???
+  def decode(tree: CodeTree, bits: List[Bit]): List[Char] = {
+    def next(b: Bit, t: CodeTree):CodeTree = {
+      t match {
+        case l: Leaf => l
+        case f: Fork => if (b ==0) f.left else f.right
+      }
+    }
+//
+//    def decode3(b: Bit, t: CodeTree): CodeTree = {
+//      t match {
+//        case l: Leaf => l
+//        case f: Fork => if (b == 0) decode3(b, f.left)
+//      }
+//    }
+
+    bits match {
+      case List() => List[Char]()
+      case b :: bs =>
+//        decode(b, tree) match {
+//
+//        }
+//        tree match {
+//          case l: Leaf => l.char :: decode(tree, bs)
+//          case f: Fork => decode(next(b, f), bits.tail)
+//        }
+        next(b, tree) match {
+          case l: Leaf => l.char :: decode(tree, bs)
+          case f: Fork => decode(f, bs)
+        }
+    }
+
+
+
+  }
+
+  def decode2(tree : CodeTree, bits : List[Bit]) : List[Char]={
+    def loop(bit : Bit, tail : List[Bit], code : CodeTree) : List[Char]={
+      val res = code match{
+        case Fork(left, right, chars, weight) => if(bit == 0) left else right
+        case Leaf(chars, weight) => code
+      }
+      res match {
+        case Leaf(c, w) => {
+          if(tail.isEmpty) List(c) else List(c) ::: loop(tail.head, tail.tail, tree)
+        }
+        case Fork(l, r, c, w) => {
+          if(tail.isEmpty) throw new Error("couldn't find char")
+          else loop(tail.head, tail.tail, res)
+        }
+      }
+    }
+    if(bits.isEmpty) Nil else loop(bits.head, bits.tail, tree)
+  }
+
 
   /**
     * A Huffman coding tree for the French language.
@@ -201,7 +256,7 @@ object Huffman {
   /**
     * Write a function that returns the decoded secret
     */
-  def decodedSecret: List[Char] = ???
+  def decodedSecret: List[Char] = decode2(frenchCode, secret)
 
 
   // Part 4a: Encoding using Huffman tree
@@ -210,7 +265,26 @@ object Huffman {
     * This function encodes `text` using the code tree `tree`
     * into a sequence of bits.
     */
-  def encode(tree: CodeTree)(text: List[Char]): List[Bit] = ???
+  def encode(tree: CodeTree)(text: List[Char]): List[Bit] = {
+    def contains(cc: Char, t: CodeTree): Boolean = {
+      t match {
+        case l: Leaf => l.char == cc
+        case f: Fork => contains(cc, f.left) || contains(cc, f.right)
+      }
+    }
+    def huff(cc: Char, t: CodeTree): List[Bit] = {
+      t match {
+        case _: Leaf => List[Bit]()
+        case f: Fork =>
+          if (contains(cc, f.left)) 0 :: huff(cc, f.left) else 1 :: huff(cc, f.right)
+      }
+    }
+    text match {
+      case List() => List[Bit]()
+      case t :: ts =>
+        huff(t, tree) ::: encode(tree)(ts)
+    }
+  }
 
   // Part 4b: Encoding using code table
 
@@ -220,7 +294,14 @@ object Huffman {
     * This function returns the bit sequence that represents the character `char` in
     * the code table `table`.
     */
-  def codeBits(table: CodeTable)(char: Char): List[Bit] = ???
+  def codeBits(table: CodeTable)(char: Char): List[Bit] = {
+    table match {
+      case Nil => throw new Error("Char not found in table")
+      case t :: ts =>
+        if ( t._1 == char ) t._2
+        else codeBits(ts)(char)
+    }
+  }
 
   /**
     * Given a code tree, create a code table which contains, for every character in the
@@ -230,14 +311,19 @@ object Huffman {
     * a valid code tree that can be represented as a code table. Using the code tables of the
     * sub-trees, think of how to build the code table for the entire tree.
     */
-  def convert(tree: CodeTree): CodeTable = ???
+  def convert(tree: CodeTree): CodeTable = {
+    tree match {
+      case l: Leaf => List((l.char, encode(tree)(List(l.char))))
+      case f: Fork => convert(f.left) ::: convert(f.right)
+    }
+  }
 
   /**
     * This function takes two code tables and merges them into one. Depending on how you
     * use it in the `convert` method above, this merge method might also do some transformations
     * on the two parameter code tables.
     */
-  def mergeCodeTables(a: CodeTable, b: CodeTable): CodeTable = ???
+  def mergeCodeTables(a: CodeTable, b: CodeTable): CodeTable = a ::: b
 
   /**
     * This function encodes `text` according to the code tree `tree`.
@@ -245,12 +331,20 @@ object Huffman {
     * To speed up the encoding process, it first converts the code tree to a code table
     * and then uses it to perform the actual encoding.
     */
-  def quickEncode(tree: CodeTree)(text: List[Char]): List[Bit] = ???
+  def quickEncode(tree: CodeTree)(text: List[Char]): List[Bit] =  ???
+  //{
+  //  val ct = convert(tree)
+  //
+  //}
 
   def main(args: Array[String]) = {
     println("Hoffman")
     println(times(string2Chars("Hoffmmmmmannn")))
     //println(count('m', string2Chars("Hoffmmmmmannn")))
+    println(decodedSecret)
+
+    println(encode(frenchCode)(string2Chars("hoffman")))
+    println(decode2(frenchCode, encode(frenchCode)(string2Chars("hoffmannnnd"))))
   }
 
 }
