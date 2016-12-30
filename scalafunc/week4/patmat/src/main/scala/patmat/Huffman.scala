@@ -294,9 +294,15 @@ object Huffman {
     * sub-trees, think of how to build the code table for the entire tree.
     */
   def convert(tree: CodeTree): CodeTable = {
+    def convert2(cc: List[Char], tt: CodeTree): CodeTable = {
+      cc match {
+        case List() => List()
+        case x :: xs => (x, encode(tree)(List(x))) :: convert2(xs, tree)
+      }
+    }
     tree match {
-      case l: Leaf => List((l.char, encode(tree)(List(l.char))))
-      case f: Fork => convert(f.left) ::: convert(f.right)
+      case l: Leaf => List((l.char, List()))
+      case f: Fork => convert2(f.chars, tree)
     }
   }
 
@@ -327,7 +333,10 @@ object Huffman {
     println(decodedSecret)
 
     println(decode(frenchCode, encode(frenchCode)(string2Chars("wt"))))
-    //println(decode(quickEncode(convert())("sometext")))
+    println("frenchCode:" + convert(frenchCode))
+    println(quickEncode(frenchCode)(string2Chars("ralala")))
+    println(decode(frenchCode,quickEncode(frenchCode)(string2Chars("ralala"))))
+
   }
 
 }
