@@ -70,7 +70,20 @@ import FloatOps._
         assert(size == 5f, s"$size should be 5f")
         assert(bodies == Seq(b), s"$bodies should contain only the inserted body")
       case _ =>
-        fail("Empty.insert() should have returned a Leaf, was $inserted")
+        fail(s"Empty.insert() should have returned a Leaf, was $inserted")
+    }
+  }
+
+  test("Leaf.insert(b) should behave") {
+    val l = Leaf(5f,5f,5f,Seq(new Body(3f,4f,3f,10f,10f),new Body(2f,1f,6f,20f,20f)))
+    val ll = l.insert(new Body(3f,7f,1f,10f,10f))
+    ll match {
+      case Fork(a,b,c,d) =>
+        assert(a.total == 1, "wtf a's size not equal to 1")
+        assert(b.total == 1, "wtf b's size not equal to 1")
+        assert(c.total == 1, "wtf c's size not equal to 1")
+        assert(d.total == 0, "wtf d's size not equal to 0")
+      case _ => fail(s"leaf.insert() should return Fork if size > minSize but returned $ll")
     }
   }
 
@@ -110,6 +123,29 @@ import FloatOps._
     sm += body
     val res = sm(2, 3).size == 1 && sm(2, 3).find(_ == body).isDefined
     assert(res, s"Body not found in the right sector")
+  }
+
+  test("SectorMatrix combine") {
+    val boundaries = new Boundaries()
+    boundaries.minX = 1
+    boundaries.minY = 1
+    boundaries.maxX = 97
+    boundaries.maxY = 97
+
+    val body1 = new Body(5, 25, 47, 0.1f, 0.1f)
+    val sm1 = new SectorMatrix(boundaries, SECTOR_PRECISION)
+    sm1 += body1
+
+    val body2 = new Body(5, 50, 22, 0.1f, 0.1f)
+    val sm2 = new SectorMatrix(boundaries, SECTOR_PRECISION)
+    sm2 += body2
+
+    val sm3 = sm1.combine(sm1)
+
+    assert(sm1(2,3).size == 0, s"sm1 = $sm1")
+    assert(sm2(2,3).size == 0, s"sm2 = $sm2")
+    assert(sm3(2,3).size == 3, s"sm3 = $sm3")
+
   }
 
 }
