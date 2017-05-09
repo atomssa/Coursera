@@ -1,6 +1,6 @@
 package stackoverflow
 
-import org.scalatest.{FunSuite, BeforeAndAfterAll}
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.apache.spark.SparkConf
@@ -34,5 +34,12 @@ class StackOverflowSuite extends FunSuite with BeforeAndAfterAll {
     assert(instantiatable, "Can't instantiate a StackOverflow object")
   }
 
-
+  test("Length of score RDD") {
+    val lines   = StackOverflow.sc.textFile("src/main/resources/stackoverflow/stackoverflow.csv")
+    val raw     = StackOverflow.rawPostings(lines)
+    val grouped = StackOverflow.groupedPostings(raw)
+    val scored  = StackOverflow.scoredPostings(grouped)
+    val vectors = StackOverflow.vectorPostings(scored)
+    assert(vectors.count() == 2121822, "Incorrect number of vectors: " + vectors.count())
+  }
 }
