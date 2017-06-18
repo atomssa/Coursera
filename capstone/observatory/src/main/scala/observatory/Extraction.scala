@@ -13,6 +13,7 @@ import org.apache.log4j.{Level, Logger}
   */
 object Extraction {
 
+  def vv = false
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
   import org.apache.spark.sql.SparkSession
@@ -40,23 +41,37 @@ object Extraction {
     */
   def locateTemperatures(year: Int, stationsFile: String, temperaturesFile: String): Iterable[(LocalDate, Location, Double)] = {
 
-    val tempDf: DataFrame = spark.read.schema(tempRecordSchema).option("header", false).csv(fsPath(temperaturesFile))
-    val stationDf: DataFrame = spark.read.schema(stationSchema).option("header", false).csv(fsPath(stationsFile))
+    if (vv) println("locateTemperaturesIn: Input")
 
-    val tempDs = tempDf.as[TempRecord].where(tempDf("stn").isNotNull and tempDf("wban").isNotNull and tempDf("month").isNotNull and tempDf("day").isNotNull and tempDf("temp").isNotNull)
-    val stationDs = stationDf.as[Station].where(stationDf("s_stn").isNotNull and stationDf("s_wban").isNotNull and stationDf("lat").isNotNull and stationDf("lon").isNotNull)
+    val tempDf: DataFrame = spark.read.schema(tempRecordSchema).option("header", value = false).csv(fsPath(temperaturesFile))
+    val stationDf: DataFrame = spark.read.schema(stationSchema).option("header", value = false).csv(fsPath(stationsFile))
 
-    println("@@@ stations dataset: ")
-    stationDs.show(20)
+    if (vv) {
+      tempDf.show(20)
+      stationDf.show(10)
+    }
 
-    println("@@@ temperatures dataset: ")
-    tempDs.show(20)
+    val tempDs = tempDf.as[TempRecord].where(
+      tempDf("month").isNotNull and tempDf("day").isNotNull and tempDf("temp").isNotNull)
+    val stationDs = stationDf.as[Station].where(
+      stationDf("lat").isNotNull and stationDf("lon").isNotNull)
 
-    println("@@@  joining stations and temperatures")
-    val tempStationDs = tempDs.join(stationDs, tempDs("stn") === stationDs("s_stn") and tempDs("wban") === stationDs("s_wban")).as[TempStation]
+    if (vv) {
+      println("@@@ stations dataset: ")
+      stationDs.show(20)
+      println("@@@ temperatures dataset: ")
+      tempDs.show(20)
+      println("@@@  joining stations and temperatures")
+    }
 
-    println("@@@ join result dataset: ")
-    tempStationDs.show(20)
+    val tempStationDs = tempDs.join(stationDs,
+      tempDs("stn") <=> stationDs("s_stn") and tempDs("wban") <=> stationDs("s_wban")
+    ).as[TempStation]
+
+    if (vv) {
+      println("@@@ join result dataset: ")
+      tempStationDs.show(20)
+    }
 
     def convert(ts: TempStation): (LocalDate, Location, Double) = {
       val localDate = LocalDate.of(year, ts.month, ts.day)
@@ -64,8 +79,12 @@ object Extraction {
       (localDate, location, (ts.temp - 32.0) * 5.0 / 9.0 )
     }
 
-    tempStationDs.collect.map(convert)
-
+    val res = tempStationDs.collect.map(convert)
+    if (vv) {
+      println("locateTemperatures: Output ")
+      res.take(10).foreach(println(_))
+    }
+    res
   }
 
   /**
@@ -73,19 +92,26 @@ object Extraction {
     * @return A sequence containing, for each location, the average temperature over the year.
     */
   def locationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Double)]): Iterable[(Location, Double)] = {
+    if (vv) {
+      println("locationYearlyAverageRecords: Input")
+      records.take(10).foreach(println(_))
+    }
     val grpByLoc = records.groupBy( a => a._2)
     def avgTemp(it: Iterable[(LocalDate, Location, Double)]): Double = {
       val temps: Iterable[Double] = it.map(_._3)
       temps.sum / temps.size
     }
     val ans = grpByLoc.map( a => (a._1, avgTemp(a._2)))
-    ans.take(10).foreach( println(_) )
+    if (vv) {
+      println("locationYearlyAverageRecords: Output")
+      ans.take(10).foreach(println(_))
+    }
     ans
   }
 
-  final case class TempRecord(stn: Int, wban: Int, month: Int, day: Int, temp: Double)
-  final case class Station(s_stn: Int, s_wban: Int, lat: Double, lon: Double)
-  final case class TempStation(stn: Int, wban: Int, month: Int, day: Int, temp: Double, s_stn: Int, s_wban: Int, lat: Double, lon: Double)
+  final case class TempRecord(stn: Integer, wban: Integer, month: Int, day: Int, temp: Double)
+  final case class Station(s_stn: Integer, s_wban: Integer, lat: Double, lon: Double)
+  final case class TempStation(stn: Integer, wban: Integer, month: Int, day: Int, temp: Double, s_stn: Integer, s_wban: Integer, lat: Double, lon: Double)
 
   val t_stn       = StructField("stn",         DataTypes.IntegerType, nullable = true)
   val t_wban      = StructField("wban",        DataTypes.IntegerType, nullable = true)
@@ -103,42 +129,5 @@ object Extraction {
 
   val stationFields = Array(s_stn, s_wban, lat, lon)
   val stationSchema = StructType(stationFields)
-
-
-/*
-    [Test Description] [#1 - Data extraction] weather stations are identified by the composite (STN, WBAN)
-    [Observed Error] Set((2000-01-01,Location(1.0,-1.0),50.0), (2000-01-05,Location(5.0,-5.0),50.0)) had size 2 instead of expected size 5
-    [Lost Points] 3
-
-  [Test Description] [#1 - Data extraction] temperatures are located
-    [Observed Error] (2000-01-01,Location(1.0,-1.0),50.0) did not equal (2000-01-01,Location(1.0,-1.0),10.0)
-    [Lost Points] 5
-
-  [Test Description] [#1 - Data extraction] stations with no location are ignored
-    [Observed Error] Error while decoding: java.lang.RuntimeException: Null value appeared in non-nullable field:
-    - field (class: "scala.Double", name: "lat")
-  - root class: "observatory.Extraction.TempStation"
-  If the schema is inferred from a Scala tuple/case class, or a Java bean, please try to use scala.Option[_] or other nullable types (e.g. java.lang.Integer instead of int/scala.Int).
-  newInstance(class observatory.Extraction$TempStation)
-  :- assertnotnull(input[0, int, true], - field (class: "scala.Int", name: "stn"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[0, int, true]
-  :- assertnotnull(input[1, int, true], - field (class: "scala.Int", name: "wban"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[1, int, true]
-  :- assertnotnull(input[2, int, true], - field (class: "scala.Int", name: "month"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[2, int, true]
-  :- assertnotnull(input[3, int, true], - field (class: "scala.Int", name: "day"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[3, int, true]
-  :- assertnotnull(input[4, double, true], - field (class: "scala.Double", name: "temp"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[4, double, true]
-  :- assertnotnull(input[7, double, true], - field (class: "scala.Double", name: "lat"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[7, double, true]
-  :- assertnotnull(input[8, double, true], - field (class: "scala.Double", name: "lon"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[8, double, true]
-  :- assertnotnull(input[5, int, true], - field (class: "scala.Int", name: "s_stn"), - root class: "observatory.Extraction.TempStation")
-  :  +- input[5, int, true]
-  +- assertnotnull(input[6, int, true], - field (class: "scala.Int", name: "s_wban"), - root class: "observatory.Extraction.TempStation")
-  +- input[6, int, true]
-
-*/
 
 }
