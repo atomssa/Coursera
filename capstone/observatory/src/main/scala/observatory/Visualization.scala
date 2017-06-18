@@ -1,13 +1,17 @@
 package observatory
 
-import com.sksamuel.scrimage.{Image, Pixel}
+import com.sksamuel.scrimage.Image
 
 /**
   * 2nd milestone: basic visualization
   */
 object Visualization {
 
+  val vv = false
+
   def dtr(d: Double): Double = d * Math.PI/180.0
+  def rtd(r: Double): Double = r * 180.0 / Math.PI
+
   val earthRadius: Double = 6371.0
   val powerPar: Double = 2.0
   def dist(l1: Location, l2: Location): Double =
@@ -23,7 +27,7 @@ object Visualization {
     * @return The predicted temperature at `location`
     */
   def predictTemperature(temperatures: Iterable[(Location, Double)], location: Location): Double = {
-//    val nearest = temperatures.filter{case(l,_)=>dist(l,location)<1.0}.toList
+    if (vv) println(s"Predicting temp for $location")
     val nearest = temperatures.minBy(a => dist(a._1,location))
     if (dist(nearest._1, location) < 1.0) {
       nearest._2
@@ -37,12 +41,12 @@ object Visualization {
     }
   }
 
-  def avgComp(r: Double, c1: Int, c2: Int): Int = c1 + ((c2 - c1)*r).toInt
-  def interp(r: Double, c1: Color, c2: Color): Color =
-    Color(avgComp(r, c1.red, c2.red), avgComp(r, c1.red, c2.red), avgComp(r, c1.blue, c2.blue))
-  def avgColor(v: Double, c1: (Double,Color), c2: (Double,Color)): Color = {
-    if (c1._1 < c2._1) interp( (v-c1._1)/(c2._1-c1._1), c1._2, c2._2)
-    else interp( (v-c2._1)/(c1._1-c2._1), c2._2, c1._2)
+  def avgComp(r: Double, c1: Int, c2: Int): Int = c1 + ((c2 - c1)*r).round.toInt
+  def interpolateColor(r: Double, c1: Color, c2: Color): Color =
+    Color(avgComp(r, c1.red, c2.red), avgComp(r, c1.green, c2.green), avgComp(r, c1.blue, c2.blue))
+  // Assumes (value of c1) <  v < (value of c2)
+  def interpolateColor(v: Double, c1: (Double,Color), c2: (Double,Color)): Color = {
+     interpolateColor( (v-c1._1)/(c2._1-c1._1), c1._2, c2._2)
   }
 
   /**
@@ -51,36 +55,58 @@ object Visualization {
     * @return The color that corresponds to `value`, according to the color scale defined by `points`
     */
   def interpolateColor(points: Iterable[(Double, Color)], value: Double): Color = {
-    val nearest = points.toList.sortBy(a => Math.abs(a._1 - value)).take(2)
-    assert(nearest.size >= 2, "Number of interpolation colors < 2")
-    avgColor(value, nearest(0), nearest(0))
+    if (vv) println(s"interpolating color for value $value")
+    // assumes scale is sorted
+    def findBounds(v: Double, scale: List[(Double,Color)]): (Option[(Double,Color)],Option[(Double,Color)]) = {
+      scale match {
+        case Nil => (None,None)
+        case p :: Nil => (None,Some(p))
+        case p :: ps =>
+          if ( v <= p._1) (Some(p), None)
+          else if ( p._1 < v && v <= ps.head._1) (Some(p),Some(ps.head))
+          else findBounds(v, ps)
+      }
+    }
+    val sorted = points.toList.sortBy(_._1)
+    if (vv) println(s"v=$value, sorted=$sorted")
+    findBounds(value, sorted) match {
+      case (None,None) => if (vv) println("nn"); throw new Exception("Empty color scale list provided")
+      case (Some(l),None) => if (vv) println("Sn"); l._2
+      case (None,Some(h)) => if (vv) println("nS"); h._2
+      case (Some(l),Some(h)) => if (vv) println(s"S($l)S($h)"); interpolateColor(value, l, h)
+    }
   }
 
-  val alpha = 255
-  val width = 360
-  val height = 180
-  def pixelToLoc(iw: Int, ih: Int): Location = Location(360*iw/width - (width/2), 180*ih/height - (height/2))
+  def pixelToLoc(iw: Int, ih: Int, width: Int, height: Int): Location = Location(90 - 180*ih/height, 360*iw/width - 180)
+  def whArray(ww: Int, hh: Int): Array[(Int,Int)] =
+    for {ih <- (0 until hh).toArray
+         iw <- (0 until ww).toArray
+    } yield { (iw,ih) }
+
   /**
     * @param temperatures Known temperatures
     * @param colors Color scale
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Double)], colors: Iterable[(Double, Color)]): Image = {
+    val sortedColors = colors.toList.sortBy(_._1)
 
-//    val pixels: Array[Pixel] = Array.fill[Pixel](width*height)(Pixel(0,0,0,0))
-    val pixels2 =
-      for {iw <- (0 until width).toArray
-           ih <- (0 until height).toArray
-      } yield {
-        val col = interpolateColor(colors, predictTemperature(temperatures, pixelToLoc(iw, ih)))
-        Pixel(col.red, col.green, col.blue, alpha)
+    if (vv) println("visualize arguments: ")
+    val temps = temperatures.map(a=>s"[(${a._1.lat},${a._1.lon}),T=${a._2}]").mkString(", ")
+    if (vv) println(s"temps: $temps")
+    if (vv) println(s"colors: $colors")
+    val col = interpolateColor(sortedColors, predictTemperature(temperatures, Location(90.0,-180.0)))
+    if (vv) println(s"interpCol(90,-180) = $col")
+
+    val width = 360
+    val height = 180
+
+    import com.sksamuel.scrimage.{Color => sColor}
+    Image(width, height, whArray(width, height).map{ case(iw, ih) =>
+        val col = interpolateColor(sortedColors, predictTemperature(temperatures, pixelToLoc(iw, ih, width, height)))
+        sColor(col.red, col.green, col.blue).toPixel
       }
-    val image = Image(width, height, pixels2)
-
-    image.output(new java.io.File("/Users/tujuba/Desktop/youpi.png"))
-
-    image
-
+    )
   }
 
 }
