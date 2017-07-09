@@ -22,15 +22,15 @@ class InteractionTest extends FunSuite with Checkers {
   }
 
   test("test invMercadorAbs, z=1, origin") {
-    val loc = Interaction.invWebMercatorAbs(1, 256, 256)
-    println(s"invMercAbs(1,256,256)=$loc")
+    val loc = Interaction.invWebMercatorAbs(1, Res.tw, Res.th)
+    println(s"invMercAbs(1,${Res.tw},${Res.th})=$loc")
     val dist = Interaction.dist(loc, Location(0,0))
     assert(dist < 0.1)
   }
 
   test("test invMercatorRel, bottom right z=1,x=0,y=0") {
-    val loc = Interaction.invWebMercatorRel(1,0,0,256,256)
-    println(s"invMercRel(1,0,0,256,256)=$loc")
+    val loc = Interaction.invWebMercatorRel(1,0,0,Res.tw,Res.th)
+    println(s"invMercRel(1,0,0,${Res.tw},${Res.th})=$loc")
     val dist = Interaction.dist(loc, Location(0,0))
     assert(dist < 0.1)
   }
@@ -43,8 +43,8 @@ class InteractionTest extends FunSuite with Checkers {
   }
 
   test("test invMercatorRel, bottom right z=1,x=1,y=1") {
-    val loc = Interaction.invWebMercatorRel(1,1,1,256,256)
-    println(s"invMercRel(1,0,0,256,256)=$loc")
+    val loc = Interaction.invWebMercatorRel(1,1,1,Res.tw,Res.th)
+    println(s"invMercRel(1,0,0,${Res.tw},${Res.th})=$loc")
     val dist = Interaction.dist(loc, Location(-Interaction.maxLat, Interaction.maxLon))
     assert(dist < 0.1)
   }

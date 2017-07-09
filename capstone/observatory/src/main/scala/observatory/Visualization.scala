@@ -2,6 +2,8 @@ package observatory
 
 import com.sksamuel.scrimage.Image
 
+import scala.collection.parallel.mutable.ParArray
+
 /**
   * 2nd milestone: basic visualization
   */
@@ -78,9 +80,9 @@ object Visualization {
   }
 
   def pixelToLoc(iw: Int, ih: Int, width: Int, height: Int): Location = Location(90 - 180*ih/height, 360*iw/width - 180)
-  def whArray(ww: Int, hh: Int): Array[(Int,Int)] =
-    for {ih <- (0 until hh).toArray
-         iw <- (0 until ww).toArray
+  def whArray(ww: Int, hh: Int): ParArray[(Int,Int)] =
+    for {ih <- (0 until hh).toParArray
+         iw <- (0 until ww).toParArray
     } yield { (iw,ih) }
 
   /**
@@ -102,11 +104,11 @@ object Visualization {
     val height = 180
 
     import com.sksamuel.scrimage.{Color => sColor}
-    Image(width, height, whArray(width, height).map{ case(iw, ih) =>
-        val col = interpolateColor(sortedColors, predictTemperature(temperatures, pixelToLoc(iw, ih, width, height)))
-        sColor(col.red, col.green, col.blue).toPixel
-      }
-    )
+    val pixels = whArray(width, height).map{ case(iw, ih) =>
+      val col = interpolateColor(sortedColors, predictTemperature(temperatures, pixelToLoc(iw, ih, width, height)))
+      sColor(col.red, col.green, col.blue, 127).toPixel
+    }
+    Image(width, height, pixels.toArray)
   }
 
 }

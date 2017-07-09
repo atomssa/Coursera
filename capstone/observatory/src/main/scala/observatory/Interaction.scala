@@ -1,7 +1,7 @@
 package observatory
 
-import com.sksamuel.scrimage.{Image, Pixel}
-import Visualization._
+import com.sksamuel.scrimage.Image
+import observatory.Visualization._
 
 /**
   * 3rd milestone: interactive visualization
@@ -9,18 +9,20 @@ import Visualization._
 object Interaction {
 
   val vv = false
+  val tileWidth: Int = Res.tw
+  val tileHeight: Int = Res.th
 
   def dist(l1: Location, l2: Location): Double = Math.hypot(l1.lat-l2.lat, l1.lon - l2.lon)
   def webMercator(z: Int, l: Location): (Int, Int) = {
     (
-      (128 * Math.pow(2.0, z) * ( dtr(l.lon) + Math.PI ) / Math.PI).round.toInt,
-      (128 * Math.pow(2.0, z) * ( Math.PI - Math.log( Math.tan( (Math.PI/4.0) + (dtr(l.lat)/2.0) ) ) ) / Math.PI).round.toInt
+      ((tileWidth/2) * Math.pow(2.0, z) * ( dtr(l.lon) + Math.PI ) / Math.PI).round.toInt,
+      ((tileHeight/2) * Math.pow(2.0, z) * ( Math.PI - Math.log( Math.tan( (Math.PI/4.0) + (dtr(l.lat)/2.0) ) ) ) / Math.PI).round.toInt
     )
   }
 
   def invWebMercatorAbs(z: Int, xPix: Int, yPix: Int): Location = {
-    val lon = (Math.PI * xPix / 128.0 / Math.pow(2.0, z)) - Math.PI
-    val lat = 2.0 * ( Math.atan( Math.pow( Math.E, Math.PI - (Math.PI * yPix / 128.0 / Math.pow(2.0, z)) ) ) - Math.PI/4.0)
+    val lon = (Math.PI * xPix * 2.0 / tileWidth / Math.pow(2.0, z)) - Math.PI
+    val lat = 2.0 * ( Math.atan( Math.pow( Math.E, Math.PI - (Math.PI * yPix * 2.0 / tileHeight / Math.pow(2.0, z)) ) ) - Math.PI/4.0)
     val boundLon = if (lon < -Math.PI) -Math.PI else if (lon > Math.PI) Math.PI else lon
     val boundLat = if (lat < -maxLatRad) -maxLatRad else if (lat > maxLatRad) maxLatRad else lat
     Location(rtd(boundLat), rtd(boundLon))
@@ -28,7 +30,7 @@ object Interaction {
 
   val maxLat = 85.0511
   val maxLon = 180.0
-  val maxLatRad = dtr(maxLat)
+  val maxLatRad: Double = dtr(maxLat)
 
   /**
     * @param zoom Zoom level
@@ -39,13 +41,13 @@ object Interaction {
   def tileLocation(zoom: Int, x: Int, y: Int): Location = {
     assert(x >=0 && x < Math.pow(2, zoom))
     assert(y >=0 && y < Math.pow(2, zoom))
-    val res = invWebMercatorAbs(zoom, x * 256, y * 256)
+    val res = invWebMercatorAbs(zoom, x * tileWidth, y * tileHeight)
     //println(s"tileLocation: zoom=$zoom x=$x, y=$y => res=$res")
     res
   }
 
   def invWebMercatorRel(z: Int, x: Int, y: Int, xPixRel: Int, yPixRel: Int): Location =
-    invWebMercatorAbs(z, x * 256 + xPixRel, y * 256 + yPixRel)
+    invWebMercatorAbs(z, x * tileWidth + xPixRel, y * tileHeight + yPixRel)
 
   /**
     * @param temperatures Known temperatures
@@ -66,12 +68,13 @@ object Interaction {
     if (vv) println(s"z=$zoom, x=$x, y=$y")
 
     import com.sksamuel.scrimage.{Color => sColor}
-    val pixels = whArray(256, 256).map{ case(xPixRel, yPixRel) =>
+    val pixels = whArray(tileWidth, tileHeight).map{ case(xPixRel, yPixRel) =>
+//      if (xPixRel==0) println(s"tile: Calculating color for: Z=$zoom, x=$x, y=$y, pixel: $xPixRel, $yPixRel")
       val loc = invWebMercatorRel(zoom, x, y, xPixRel, yPixRel)
       val col = interpolateColor(sortedColors, predictTemperature(temperatures, loc))
-      sColor(col.red, col.green, col.blue).toPixel
+      sColor(col.red, col.green, col.blue, 127).toPixel
     }
-    Image(256, 256, pixels)
+    Image(tileWidth, tileHeight, pixels.toArray)
   }
 
   /**
@@ -85,13 +88,11 @@ object Interaction {
     yearlyData: Iterable[(Int, Data)],
     generateImage: (Int, Int, Int, Int, Data) => Unit
   ): Unit = {
-
     for {z <- 0 to 3
          x <- 0 until Math.pow(2,z).toInt
          y <- 0 until Math.pow(2,z).toInt
          data <- yearlyData
     } {
-//      println(s"generating tiles for z=$z, x=$x, y=$y, d=${data._1}")
       generateImage(data._1, z, x, y, data._2)
     }
 

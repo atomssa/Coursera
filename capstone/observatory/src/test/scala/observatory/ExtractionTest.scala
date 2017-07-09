@@ -33,6 +33,6 @@ class ExtractionTest extends FunSuite {
     val agg = Extraction.locationYearlyAverageRecords(records)
     assert(agg.size === 5)
   }
-  */
+*/
 
 }

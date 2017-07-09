@@ -3,10 +3,9 @@ package observatory
 import java.nio.file.Paths
 import java.time.LocalDate
 
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-
-import org.apache.log4j.{Level, Logger}
 
 /**
   * 1st milestone: data extraction
@@ -17,7 +16,6 @@ object Extraction {
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
   import org.apache.spark.sql.SparkSession
-  import org.apache.spark.sql.functions._
 
   val spark: SparkSession =
     SparkSession
