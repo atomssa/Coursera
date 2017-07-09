@@ -15,7 +15,7 @@ object Main extends App {
     val mm = now.get(Calendar.MINUTE)
     val ss = now.get(Calendar.SECOND)
     val ms = now.get(Calendar.MILLISECOND)
-    s"$hh:$mm:$ss.$ms"
+    f"$hh%02d:$mm%02d:$ss%02d.$ms%03d"
   }
 
   val colorScaleTemp = Iterable(
