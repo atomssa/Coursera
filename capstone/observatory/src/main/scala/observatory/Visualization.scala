@@ -4,6 +4,8 @@ import com.sksamuel.scrimage.Image
 
 import scala.collection.parallel.mutable.ParArray
 
+//import scala.collection.parallel.mutable.ParArray
+
 /**
   * 2nd milestone: basic visualization
   */
@@ -72,10 +74,10 @@ object Visualization {
     val sorted = points.toList.sortBy(_._1)
     if (vv) println(s"v=$value, sorted=$sorted")
     findBounds(value, sorted) match {
-      case (None,None) => if (vv) println("nn"); throw new Exception("Empty color scale list provided")
-      case (Some(l),None) => if (vv) println("Sn"); l._2
-      case (None,Some(h)) => if (vv) println("nS"); h._2
-      case (Some(l),Some(h)) => if (vv) println(s"S($l)S($h)"); interpolateColor(value, l, h)
+      case (None,None) => throw new Exception("Empty color scale list provided")
+      case (Some(l),None) => l._2
+      case (None,Some(h)) => h._2
+      case (Some(l),Some(h)) => interpolateColor(value, l, h)
     }
   }
 

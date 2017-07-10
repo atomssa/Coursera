@@ -53,7 +53,7 @@ class InteractionTest extends FunSuite with Checkers {
     //val data = Iterable((2000,0.0),(2001,1.0),(2002,2.0),(2003,3.0),(2004,4.0))
     val data = Iterable((2000,0.0))
     def func (z: Int, x: Int, y: Int, year: Int, d: Double) = {
-      println(s"generating tiles for z=$z, x=$x, y=$y, year=$year, d=$d")
+      //println(s"generating tiles for z=$z, x=$x, y=$y, year=$year, d=$d")
     }
     Interaction.generateTiles[Double](data, func)
     assert(1===1)

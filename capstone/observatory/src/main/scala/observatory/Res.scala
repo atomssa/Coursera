@@ -6,6 +6,4 @@ package observatory
 object Res {
   final val tw = 256
   final val th = 256
-//  final val tw = 128
-//  final val th = 128
 }

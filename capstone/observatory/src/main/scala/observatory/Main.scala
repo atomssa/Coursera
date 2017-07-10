@@ -18,7 +18,7 @@ object Main extends App {
     f"$hh%02d:$mm%02d:$ss%02d.$ms%03d"
   }
 
-  val colorScaleTemp = Iterable(
+  val colorScaleTemp = Seq(
     (60.0, Color(255, 255, 255)),
     (32.0, Color(255, 0, 0)),
     (12.0, Color(255, 255, 0)),
@@ -28,7 +28,7 @@ object Main extends App {
     (-50.0, Color(33, 0, 107)),
     (-60.0, Color(0, 0, 0)))
 
-  val colorScaleDev = Iterable(
+  val colorScaleDev = Seq(
     (7.0,  Color(0,   0,   0)),
     (4.0,  Color(255, 0,   0)),
     (2.0,  Color(255, 255, 0)),
@@ -36,7 +36,7 @@ object Main extends App {
     (-2.0, Color(0,   255, 255)),
     (-7.0, Color(0,   0,   255)))
 
-    val years = 1975 to 2015
+  val years = 1975 to 2015
 //  val years = 1975 to 1976
 
   val targTempDir = "/Users/tujuba/IdeaProjects/Coursera/capstone/observatory/target/temperatures/"
